@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>מעקב משלוחים</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --navy: #0d1b3e; --blue-accent: #2563eb; --blue-mid: #3b82f6;
+    --bg: #e8eaf0; --card: #fff; --text: #1a1a2e; --subtext: #6b7280;
+    --border: #e5e7eb; --green: #10b981; --orange: #f59e0b; --purple: #8b5cf6; --red: #ef4444;
+  }
+  body { font-family:'Heebo',sans-serif; background:var(--bg); min-height:100vh; max-width:430px; margin:0 auto; display:flex; flex-direction:column; }
+
+  /* HEADER */
+  .header { background:var(--navy); padding:16px 20px 0; position:sticky; top:0; z-index:100; }
+  .header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .header-title { color:white; font-size:20px; font-weight:700; }
+  .header-icon { width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:white; opacity:0.85; transition:opacity 0.2s; }
+  .header-icon:hover { opacity:1; }
+  .header-icon svg { width:22px; height:22px; }
+  .tabs { display:flex; }
+  .tab { flex:1; text-align:center; padding:10px 6px; color:rgba(255,255,255,0.55); font-size:13px; font-weight:500; cursor:pointer; border-bottom:3px solid transparent; transition:all 0.2s; user-select:none; }
+  .tab.active { color:white; border-bottom-color:var(--blue-mid); }
+
+  /* STATS BANNER */
+  .stats-banner { background:var(--navy); padding:0 14px 16px; display:flex; gap:10px; }
+  .stat-box { flex:1; background:rgba(255,255,255,0.08); border-radius:12px; padding:10px 12px; text-align:center; }
+  .stat-num { font-size:22px; font-weight:800; color:white; line-height:1; margin-bottom:3px; }
+  .stat-label { font-size:11px; color:rgba(255,255,255,0.55); font-weight:500; }
+
+  /* CONTENT */
+  .content { flex:1; padding:14px 14px 100px; display:flex; flex-direction:column; gap:12px; }
+
+  /* CARD */
+  .parcel-card { background:var(--card); border-radius:14px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.07); cursor:pointer; transition:transform 0.15s,box-shadow 0.15s; animation:fadeIn 0.3s ease both; }
+  .parcel-card:active { transform:scale(0.985); }
+  .parcel-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.12); }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+  .card-title { font-size:15px; font-weight:700; color:var(--text); line-height:1.3; flex:1; }
+  .card-menu { color:var(--subtext); padding:2px 6px; cursor:pointer; font-size:20px; line-height:1; border-radius:4px; }
+  .card-menu:hover { background:#f3f4f6; }
+  .card-meta { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .card-tracking { font-size:12px; color:var(--subtext); font-family:'Courier New',monospace; letter-spacing:0.5px; }
+  .source-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+  .badge-amazon { background:#fef3c7; color:#92400e; }
+  .badge-aliexpress { background:#fce7f3; color:#9d174d; }
+
+  /* ETA CHIP */
+  .eta-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:600; background:#ecfdf5; color:#065f46; }
+  .eta-chip.late { background:#fee2e2; color:#991b1b; }
+  .eta-chip.soon { background:#ede9fe; color:#5b21b6; }
+  .eta-chip.today { background:#d1fae5; color:#065f46; }
+
+  .card-status-row { display:flex; align-items:center; gap:10px; }
+  .status-icon { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .status-icon svg { width:18px; height:18px; }
+  .status-icon.arrived { background:#dbeafe; color:var(--blue-accent); }
+  .status-icon.transit { background:#d1fae5; color:var(--green); }
+  .status-icon.warehouse { background:#fef3c7; color:var(--orange); }
+  .status-icon.delivered { background:#ede9fe; color:var(--purple); }
+  .status-info { flex:1; }
+  .status-text { font-size:14px; font-weight:500; color:var(--text); margin-bottom:2px; }
+  .status-date { font-size:12px; color:var(--subtext); display:flex; justify-content:space-between; align-items:center; }
+  .time-ago { display:flex; align-items:center; gap:4px; color:var(--subtext); font-size:12px; }
+
+  /* PROGRESS */
+  .progress-wrap { margin-top:10px; }
+  .progress-bar { height:4px; background:#e5e7eb; border-radius:2px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,var(--blue-accent),var(--green)); transition:width 0.5s ease; }
+  .progress-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--subtext); margin-top:3px; }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:60px 24px; color:var(--subtext); animation:fadeIn 0.4s ease; }
+  .empty-icon { font-size:52px; margin-bottom:16px; opacity:0.5; }
+  .empty-title { font-size:17px; font-weight:600; color:#374151; margin-bottom:6px; }
+  .empty-sub { font-size:14px; }
+
+  /* BOTTOM BAR */
+  .bottom-bar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; background:white; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:10px 40px; z-index:100; }
+  .bar-btn { display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--subtext); font-size:11px; cursor:pointer; min-width:56px; }
+  .bar-btn svg { width:22px; height:22px; }
+  .add-btn { width:56px; height:56px; background:var(--blue-accent); border-radius:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(37,99,235,0.4); transition:transform 0.15s; margin-top:-10px; }
+  .add-btn:hover { transform:scale(1.07); }
+  .add-btn:active { transform:scale(0.95); }
+  .add-btn svg { width:26px; height:26px; color:white; }
+
+  /* MODALS */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:flex-end; max-width:430px; left:50%; transform:translateX(-50%); }
+  .modal-overlay.open { display:flex; }
+  .modal { background:white; border-radius:24px 24px 0 0; padding:24px 20px 40px; width:100%; animation:slideUp 0.3s ease; max-height:90vh; overflow-y:auto; }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .modal-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .modal-top-title { font-size:18px; font-weight:700; color:var(--text); }
+  .icon-btn { background:#f3f4f6; border:none; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--subtext); font-size:16px; }
+
+  .form-group { margin-bottom:14px; }
+  .form-label { display:block; font-size:13px; font-weight:600; color:var(--subtext); margin-bottom:6px; }
+  .form-input { width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px; font-family:'Heebo',sans-serif; font-size:14px; color:var(--text); outline:none; transition:border-color 0.2s; }
+  .form-input:focus { border-color:var(--blue-accent); }
+  .form-input.rtl { direction:rtl; text-align:right; }
+  .form-select { width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px; font-family:'Heebo',sans-serif; font-size:14px; color:var(--text); outline:none; background:white; direction:rtl; transition:border-color 0.2s; }
+  .form-select:focus { border-color:var(--blue-accent); }
+  .pin-wrap { position:relative; }
+  .pin-icon { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:16px; pointer-events:none; }
+  .submit-btn { width:100%; padding:14px; background:var(--blue-accent); color:white; border:none; border-radius:12px; font-family:'Heebo',sans-serif; font-size:16px; font-weight:700; cursor:pointer; margin-top:8px; transition:background 0.2s; }
+  .submit-btn:hover { background:#1d4ed8; }
+  .cancel-btn { width:100%; padding:12px; background:none; border:none; font-family:'Heebo',sans-serif; font-size:15px; color:var(--subtext); cursor:pointer; margin-top:6px; border-radius:10px; transition:background 0.2s; }
+  .cancel-btn:hover { background:#f3f4f6; }
+  .delete-btn { width:100%; padding:11px; background:#fee2e2; color:var(--red); border:none; border-radius:10px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:12px; }
+
+  /* DETAIL */
+  .detail-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:flex-end; max-width:430px; left:50%; transform:translateX(-50%); }
+  .detail-modal.open { display:flex; }
+  .detail-content { background:white; border-radius:24px 24px 0 0; padding:24px 20px 40px; width:100%; max-height:85vh; overflow-y:auto; animation:slideUp 0.3s ease; position:relative; }
+  .modal-handle { width:40px; height:4px; background:#e5e7eb; border-radius:2px; margin:0 auto 20px; }
+  .close-detail { position:absolute; top:20px; left:20px; width:32px; height:32px; background:#f3f4f6; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--subtext); }
+  .detail-title { font-size:17px; font-weight:800; color:var(--text); margin-bottom:4px; }
+  .detail-tracking { font-size:12px; color:var(--subtext); font-family:monospace; margin-bottom:12px; }
+
+  /* ETA CARD */
+  .eta-card { background:linear-gradient(135deg,#1e40af,#3b82f6); border-radius:14px; padding:14px 16px; margin-bottom:16px; color:white; }
+  .eta-card-label { font-size:11px; opacity:0.75; margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+  .eta-card-date { font-size:20px; font-weight:800; margin-bottom:2px; }
+  .eta-card-sub { font-size:12px; opacity:0.7; }
+  .eta-progress { height:6px; background:rgba(255,255,255,0.25); border-radius:3px; margin-top:12px; overflow:hidden; }
+  .eta-progress-fill { height:100%; background:white; border-radius:3px; }
+
+  /* TIMELINE */
+  .timeline-label { font-size:12px; font-weight:700; color:var(--subtext); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px; }
+  .timeline { position:relative; padding-right:20px; }
+  .timeline::before { content:''; position:absolute; right:7px; top:8px; bottom:8px; width:2px; background:#e5e7eb; }
+  .timeline-item { display:flex; gap:14px; margin-bottom:16px; position:relative; }
+  .timeline-dot { width:16px; height:16px; border-radius:50%; background:var(--blue-accent); border:2px solid white; box-shadow:0 0 0 2px var(--blue-accent); flex-shrink:0; margin-right:-8px; margin-top:2px; z-index:1; }
+  .timeline-dot.done { background:var(--green); box-shadow:0 0 0 2px var(--green); }
+  .timeline-dot.pending { background:#d1d5db; box-shadow:0 0 0 2px #d1d5db; }
+  .tl-status { font-size:14px; font-weight:600; margin-bottom:2px; }
+
+  /* STATS */
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .stats-card { background:white; border-radius:14px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); animation:fadeIn 0.3s ease both; }
+  .stats-card.full { grid-column:1/-1; }
+  .sc-icon { font-size:24px; margin-bottom:8px; }
+  .sc-num { font-size:28px; font-weight:800; color:var(--text); }
+  .sc-label { font-size:12px; color:var(--subtext); margin-top:2px; }
+  .source-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+  .source-row:last-child { border-bottom:none; }
+  .source-name { font-size:14px; font-weight:600; color:var(--text); }
+  .source-count { font-size:13px; color:var(--subtext); }
+  .source-bar-wrap { flex:1; margin:0 12px; height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; }
+  .source-bar { height:100%; border-radius:3px; }
+  .history-item { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid #f3f4f6; align-items:center; }
+  .history-item:last-child { border-bottom:none; }
+  .history-name { font-size:14px; font-weight:600; color:var(--text); }
+  .history-meta { font-size:12px; color:var(--subtext); }
+
+  .spin { animation:spin 1s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* TRACK CHECK */
+  .track-btn { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:11px; background:linear-gradient(135deg,#1e40af,#3b82f6); color:white; border:none; border-radius:10px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:700; cursor:pointer; margin-top:10px; transition:opacity 0.2s,transform 0.15s; }
+  .track-btn:hover { opacity:0.92; transform:scale(1.01); }
+  .track-btn:active { transform:scale(0.98); }
+  .track-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+  .track-btn svg { width:16px; height:16px; }
+
+  .track-result { margin-top:12px; border-radius:12px; overflow:hidden; border:1.5px solid var(--border); animation:fadeIn 0.3s ease; }
+  .track-result-header { display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:13px; font-weight:700; }
+  .track-result-header.ok { background:#ecfdf5; color:#065f46; }
+  .track-result-header.warn { background:#fef3c7; color:#92400e; }
+  .track-result-header.err { background:#fee2e2; color:#991b1b; }
+  .track-result-body { padding:12px 14px; font-size:13px; color:var(--text); line-height:1.6; background:white; }
+  .track-event { display:flex; gap:10px; padding:7px 0; border-bottom:1px solid #f3f4f6; }
+  .track-event:last-child { border-bottom:none; }
+  .track-event-dot { width:8px; height:8px; border-radius:50%; background:var(--blue-accent); flex-shrink:0; margin-top:5px; }
+  .track-event-dot.latest { background:var(--green); width:10px; height:10px; box-shadow:0 0 0 3px rgba(16,185,129,0.2); }
+  .track-event-text { flex:1; }
+  .track-event-status { font-weight:600; font-size:13px; color:var(--text); }
+  .track-event-date { font-size:11px; color:var(--subtext); margin-top:1px; }
+
+  .external-links { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .ext-link { display:inline-flex; align-items:center; gap:4px; padding:7px 12px; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1.5px solid var(--border); color:var(--text); background:white; transition:all 0.2s; }
+  .ext-link:hover { background:#f3f4f6; transform:scale(1.02); }
+  .last-checked { font-size:11px; color:var(--subtext); margin-top:8px; display:flex; align-items:center; gap:4px; }
+
+  .status-updating { opacity:0.6; pointer-events:none; }
+  .pulse { animation:pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div style="width:38px;"></div>
+    <span class="header-title">משלוחים</span>
+    <div class="header-icon" onclick="openSearch()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('active',this)">פעיל (<span id="activeCount">0</span>)</div>
+    <div class="tab" onclick="switchTab('archive',this)">ארכיון</div>
+    <div class="tab" onclick="switchTab('stats',this)">סטטיסטיקה</div>
+  </div>
+</div>
+
+<div class="stats-banner" id="statsBanner">
+  <div class="stat-box"><div class="stat-num" id="bannerActive">0</div><div class="stat-label">בדרך</div></div>
+  <div class="stat-box"><div class="stat-num" id="bannerDelivered">0</div><div class="stat-label">נמסרו</div></div>
+  <div class="stat-box"><div class="stat-num" id="bannerAvgDays">-</div><div class="stat-label">ימים ממוצע</div></div>
+</div>
+
+<div class="content" id="content"></div>
+
+<div class="bottom-bar">
+  <div class="bar-btn" onclick="checkAllParcels()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" id="checkAllIcon"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    בדוק הכל
+  </div>
+  <div class="add-btn" onclick="openAddModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+  </div>
+  <div class="bar-btn" onclick="refreshAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" id="refreshIcon"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    רענון
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addModal" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal">
+    <div class="modal-top">
+      <button class="icon-btn" onclick="closeAddModal()">✕</button>
+      <div class="modal-top-title">הוסף משלוח</div>
+      <div style="width:32px;"></div>
+    </div>
+    <div class="form-group"><label class="form-label">מספר מעקב</label><input class="form-input" id="trackingInput" placeholder="לדוגמה: GWD004537768" type="text"></div>
+    <div class="form-group"><label class="form-label">שם / תיאור</label><input class="form-input rtl" id="nameInput" placeholder="לדוגמה: אוזניות בלוטות׳" type="text"></div>
+    <div class="form-group"><label class="form-label">מקור</label><select class="form-select" id="sourceSelect"><option value="amazon">🛒 אמזון</option><option value="aliexpress">🧡 עלי אקספרס</option></select></div>
+    <div class="form-group"><label class="form-label">מקום איסוף</label><div class="pin-wrap"><span class="pin-icon">📍</span><input class="form-input rtl" id="pickupInput" placeholder="סניף דואר / נקודת חלוקה" type="text" style="padding-right:36px;"></div></div>
+    <div class="form-group"><label class="form-label">תאריך הזמנה</label><input class="form-input" id="orderDateInput" type="date"></div>
+    <div class="form-group"><label class="form-label">תאריך הגעה משוער</label><input class="form-input" id="etaInput" type="date"></div>
+    <button class="submit-btn" onclick="addParcel()">הוסף משלוח</button>
+    <button class="cancel-btn" onclick="closeAddModal()">ביטול</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal" onclick="if(event.target===this)closeEditModal()" style="z-index:400;">
+  <div class="modal">
+    <div class="modal-top">
+      <button class="icon-btn" onclick="closeEditModal()">✕</button>
+      <div class="modal-top-title">עריכת משלוח</div>
+      <div style="width:32px;"></div>
+    </div>
+    <div class="form-group"><label class="form-label">מספר מעקב</label><input class="form-input" id="editTracking" type="text"></div>
+    <div class="form-group"><label class="form-label">שם / תיאור</label><input class="form-input rtl" id="editName" type="text"></div>
+    <div class="form-group"><label class="form-label">מקור</label><select class="form-select" id="editSource"><option value="amazon">🛒 אמזון</option><option value="aliexpress">🧡 עלי אקספרס</option></select></div>
+    <div class="form-group"><label class="form-label">מקום איסוף</label><div class="pin-wrap"><span class="pin-icon">📍</span><input class="form-input rtl" id="editPickup" type="text" style="padding-right:36px;"></div></div>
+    <div class="form-group"><label class="form-label">תאריך הגעה משוער</label><input class="form-input" id="editEta" type="date"></div>
+    <button class="submit-btn" onclick="saveEdit()">שמור שינויים</button>
+    <button class="cancel-btn" onclick="closeEditModal()">ביטול</button>
+    <button class="delete-btn" onclick="deleteFromEdit()">🗑 מחק משלוח</button>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="detail-modal" id="detailModal" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-content" id="detailContent">
+    <div class="close-detail" onclick="closeDetail()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+    <div class="modal-handle"></div>
+  </div>
+</div>
+
+<script>
+let parcels = JSON.parse(localStorage.getItem('parcels') || '[]');
+let currentTab = 'active';
+
+const icons = {
+  transit:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="m16 8 4 4v5H1m5 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm11 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/></svg>`,
+  warehouse: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  arrived:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
+  delivered: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>`,
+};
+
+function esc(s) { return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function timeAgo(ts) {
+  const d=Date.now()-ts, m=Math.floor(d/60000), h=Math.floor(d/3600000), days=Math.floor(d/86400000);
+  if(m<2) return 'עכשיו';
+  if(m<60) return `לפני ${m} דקות`;
+  if(h<24) return h===1?'לפני שעה':`לפני ${h} שעות`;
+  if(days===1) return 'לפני יום';
+  return `לפני ${days} ימים`;
+}
+
+function fmtDate(ts) { return new Date(ts).toLocaleDateString('he-IL',{day:'numeric',month:'long',year:'numeric'}); }
+function fmtDateLong(str) { return new Date(str).toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'}); }
+
+function daysUntil(str) {
+  if(!str) return null;
+  const eta=new Date(str), today=new Date(); today.setHours(0,0,0,0);
+  return Math.round((eta-today)/86400000);
+}
+
+function getStatus(p) {
+  if(p.delivered) return {text:'נמסר',iconType:'delivered',iconClass:'delivered',progress:100};
+  // Use real events if available
+  if(p.realEvents && p.realEvents.length) {
+    const latest = p.realEvents[0];
+    const s = latest.status || '';
+    if(s.includes('נשלח')) return {text:'נשלח · '+s, iconType:'transit', iconClass:'transit', progress:40};
+    if(s.includes('יצא למסירה')) return {text:'יצא למסירה', iconType:'transit', iconClass:'transit', progress:85};
+    if(s.includes('נמסר')) return {text:'נמסר', iconType:'delivered', iconClass:'delivered', progress:100};
+  }
+  const d=Math.floor((Date.now()-p.addedAt)/86400000);
+  if(d<1) return {text:'נכנס למחסן',iconType:'warehouse',iconClass:'warehouse',progress:15};
+  if(d<5) return {text:'המשלוח בדרכו למדינת היעד',iconType:'transit',iconClass:'transit',progress:35};
+  if(d<10) return {text:'הגיע למדינת היעד',iconType:'arrived',iconClass:'arrived',progress:65};
+  if(d<14) return {text:'בדרכו למסירה',iconType:'transit',iconClass:'transit',progress:85};
+  return {text:'נמסר',iconType:'delivered',iconClass:'delivered',progress:100};
+}
+
+function etaChip(p) {
+  const d=daysUntil(p.eta);
+  if(d===null||p.delivered) return '';
+  if(d<0) return `<span class="eta-chip late">⚠️ התעכב ${Math.abs(d)} ימים</span>`;
+  if(d===0) return `<span class="eta-chip today">📦 מגיע היום!</span>`;
+  if(d<=3) return `<span class="eta-chip soon">🚀 עוד ${d} ימים</span>`;
+  return `<span class="eta-chip">📅 עוד ${d} ימים</span>`;
+}
+
+function save() { localStorage.setItem('parcels',JSON.stringify(parcels)); }
+
+// ---- RENDER ----
+function render() {
+  const active=parcels.filter(p=>!p.delivered);
+  const archived=parcels.filter(p=>p.delivered);
+  document.getElementById('activeCount').textContent=active.length;
+  document.getElementById('bannerActive').textContent=active.length;
+  document.getElementById('bannerDelivered').textContent=archived.length;
+  const withDays=archived.filter(p=>p.addedAt&&p.updatedAt);
+  const avg=withDays.length?Math.round(withDays.reduce((s,p)=>s+Math.floor((p.updatedAt-p.addedAt)/86400000),0)/withDays.length):'-';
+  document.getElementById('bannerAvgDays').textContent=avg;
+  document.getElementById('statsBanner').style.display=currentTab==='stats'?'none':'flex';
+
+  if(currentTab==='stats'){renderStats();return;}
+
+  const filtered=currentTab==='archive'?archived:active;
+  const content=document.getElementById('content');
+
+  if(!filtered.length){
+    content.innerHTML=`<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">${currentTab==='active'?'אין משלוחים פעילים':'אין משלוחים בארכיון'}</div><div class="empty-sub">${currentTab==='active'?'לחץ + כדי להוסיף':'משלוחים שנמסרו יופיעו כאן'}</div></div>`;
+    return;
+  }
+
+  content.innerHTML=filtered.map((p,i)=>{
+    const s=getStatus(p);
+    const idx=parcels.indexOf(p);
+    const badge=p.source==='amazon'?'badge-amazon':'badge-aliexpress';
+    const badgeTxt=p.source==='amazon'?'🛒 אמזון':'🧡 עלי אקספרס';
+    return `
+    <div class="parcel-card" onclick="openDetail(${idx})" style="animation-delay:${i*0.05}s">
+      <div class="card-header">
+        <div class="card-title">${esc(p.name)}</div>
+        <div class="card-menu" onclick="event.stopPropagation();openMenu(${idx})">⋮</div>
+      </div>
+      <div class="card-meta">
+        <span class="source-badge ${badge}">${badgeTxt}</span>
+        <span class="card-tracking">${esc(p.tracking)}</span>
+        ${etaChip(p)}
+      </div>
+      ${p.pickup?`<div style="font-size:12px;color:var(--subtext);margin-bottom:10px;display:flex;align-items:center;gap:4px;">📍 ${esc(p.pickup)}</div>`:''}
+      <div class="card-status-row">
+        <div class="status-icon ${s.iconClass}">${icons[s.iconType]}</div>
+        <div class="status-info">
+          <div class="status-text">${s.text}</div>
+          <div class="status-date">
+            <span>${fmtDate(p.updatedAt||p.addedAt)}</span>
+            <span class="time-ago"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${timeAgo(p.updatedAt||p.addedAt)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" style="width:${s.progress}%"></div></div>
+        <div class="progress-labels"><span>הוזמן</span><span>נמסר</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- STATS ----
+function renderStats() {
+  const total=parcels.length;
+  const delivered=parcels.filter(p=>p.delivered).length;
+  const active=parcels.filter(p=>!p.delivered).length;
+  const amazon=parcels.filter(p=>p.source==='amazon').length;
+  const ali=parcels.filter(p=>p.source==='aliexpress').length;
+  const maxS=Math.max(amazon,ali,1);
+  const now=new Date();
+  const thisMonth=parcels.filter(p=>{const d=new Date(p.addedAt);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length;
+  const withDays=parcels.filter(p=>p.delivered&&p.addedAt&&p.updatedAt);
+  const avg=withDays.length?Math.round(withDays.reduce((s,p)=>s+Math.floor((p.updatedAt-p.addedAt)/86400000),0)/withDays.length):0;
+
+  const history=[...parcels].filter(p=>p.delivered).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,5);
+  const histHtml=history.length?history.map(p=>`
+    <div class="history-item">
+      <div style="font-size:20px;">${p.source==='amazon'?'🛒':'🧡'}</div>
+      <div style="flex:1"><div class="history-name">${esc(p.name)}</div><div class="history-meta">${esc(p.tracking)} · נמסר ${timeAgo(p.updatedAt)}</div></div>
+    </div>`).join(''):`<div style="color:var(--subtext);font-size:14px;padding:10px 0;">עדיין אין משלוחים שנמסרו</div>`;
+
+  document.getElementById('content').innerHTML=`
+    <div class="stats-grid">
+      <div class="stats-card"><div class="sc-icon">📦</div><div class="sc-num">${total}</div><div class="sc-label">סה״כ משלוחים</div></div>
+      <div class="stats-card"><div class="sc-icon">🚚</div><div class="sc-num">${active}</div><div class="sc-label">בדרך עכשיו</div></div>
+      <div class="stats-card"><div class="sc-icon">✅</div><div class="sc-num">${delivered}</div><div class="sc-label">נמסרו</div></div>
+      <div class="stats-card"><div class="sc-icon">📅</div><div class="sc-num">${thisMonth}</div><div class="sc-label">הוזמנו החודש</div></div>
+      <div class="stats-card full"><div class="sc-icon">⏱️</div><div class="sc-num">${avg||'-'} <span style="font-size:16px;font-weight:400;color:var(--subtext)">ימים</span></div><div class="sc-label">זמן משלוח ממוצע</div></div>
+      <div class="stats-card full">
+        <div class="sc-label" style="margin-bottom:12px;">לפי מקור</div>
+        <div class="source-row"><div class="source-name">🛒 אמזון</div><div class="source-bar-wrap"><div class="source-bar" style="width:${amazon/maxS*100}%;background:#f59e0b;"></div></div><div class="source-count">${amazon}</div></div>
+        <div class="source-row"><div class="source-name">🧡 עלי אקספרס</div><div class="source-bar-wrap"><div class="source-bar" style="width:${ali/maxS*100}%;background:#ec4899;"></div></div><div class="source-count">${ali}</div></div>
+      </div>
+      <div class="stats-card full"><div class="sc-label" style="margin-bottom:12px;">היסטוריית משלוחים אחרונים</div>${histHtml}</div>
+    </div>`;
+}
+
+// ---- ADD ----
+function openAddModal() {
+  const eta=new Date(); eta.setDate(eta.getDate()+21);
+  document.getElementById('etaInput').value=eta.toISOString().split('T')[0];
+  document.getElementById('orderDateInput').value=new Date().toISOString().split('T')[0];
+  document.getElementById('addModal').classList.add('open');
+  setTimeout(()=>document.getElementById('trackingInput').focus(),100);
+}
+function closeAddModal(){document.getElementById('addModal').classList.remove('open');}
+
+function addParcel(){
+  const tracking=document.getElementById('trackingInput').value.trim();
+  if(!tracking){document.getElementById('trackingInput').style.borderColor='#ef4444';setTimeout(()=>document.getElementById('trackingInput').style.borderColor='',1500);return;}
+  const orderDate=document.getElementById('orderDateInput').value;
+  parcels.unshift({
+    id:Date.now(),tracking,
+    name:document.getElementById('nameInput').value.trim()||'משלוח חדש',
+    source:document.getElementById('sourceSelect').value,
+    pickup:document.getElementById('pickupInput').value.trim(),
+    eta:document.getElementById('etaInput').value,
+    addedAt:orderDate?new Date(orderDate).getTime():Date.now(),
+    updatedAt:Date.now(),delivered:false,
+  });
+  save();render();
+  ['trackingInput','nameInput','pickupInput','etaInput','orderDateInput'].forEach(id=>document.getElementById(id).value='');
+  closeAddModal();
+}
+
+// ---- 17TRACK VIA NETLIFY FUNCTION ----
+async function fetchTracking17(tracking) {
+  const res = await fetch('/.netlify/functions/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tracking })
+  });
+  if (!res.ok) throw new Error('Function error');
+  return await res.json();
+}
+
+// ---- TRACKING CHECK ----
+async function checkTrackingStatus(idx) {
+  const p = parcels[idx];
+  const btn = document.getElementById(`trackBtn_${idx}`);
+  const resultEl = document.getElementById(`trackResult_${idx}`);
+  if (!btn || !resultEl) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg> בודק...`;
+  resultEl.innerHTML = `<div class="track-result"><div class="track-result-header warn pulse">⏳ מתחבר ל-17track...</div></div>`;
+
+  const externalLinks = getExternalLinks(p);
+
+  try {
+    const data = await fetchTracking17(p.tracking);
+
+    if (!data.found || !data.events?.length) {
+      resultEl.innerHTML = `
+        <div class="track-result">
+          <div class="track-result-header warn">📭 לא נמצא עדיין</div>
+          <div class="track-result-body" style="font-size:13px;color:var(--subtext);">החבילה עדיין לא נסרקה. בדוק ב:</div>
+        </div>
+        <div class="external-links" style="margin-top:10px;">${externalLinks}</div>`;
+    } else {
+      parcels[idx].lastTracked = Date.now();
+      parcels[idx].lastStatus = data.statusText;
+      if (data.delivered && !parcels[idx].delivered) {
+        parcels[idx].delivered = true;
+        parcels[idx].updatedAt = Date.now();
+      }
+      // Save real events
+      parcels[idx].realEvents = data.events.map(e => ({
+        date: e.date ? new Date(e.date).toLocaleDateString('he-IL') : '',
+        status: e.status,
+        location: e.location
+      }));
+      save(); render();
+
+      const statusClass = data.delivered ? 'ok' : data.statusCode >= 40 ? 'warn' : 'ok';
+      const statusIcon = data.delivered ? '✅' : data.statusCode >= 40 ? '🚚' : '✈️';
+
+      const eventsHtml = data.events.slice(0, 6).map((ev, i) => `
+        <div class="track-event">
+          <div class="track-event-dot ${i === 0 ? 'latest' : ''}"></div>
+          <div class="track-event-text">
+            <div class="track-event-status">${esc(ev.status)}</div>
+            <div class="track-event-date">${ev.date ? '📅 ' + esc(new Date(ev.date).toLocaleDateString('he-IL')) : ''}${ev.location ? ' · 📍 ' + esc(ev.location) : ''}</div>
+          </div>
+        </div>`).join('');
+
+      resultEl.innerHTML = `
+        <div class="track-result">
+          <div class="track-result-header ${statusClass}">${statusIcon} ${esc(data.statusText)}${data.carrier ? ' · ' + esc(data.carrier) : ''}</div>
+          <div class="track-result-body">
+            <div style="font-size:11px;color:var(--subtext);margin-bottom:8px;">🔍 17track — נתונים אמיתיים</div>
+            ${eventsHtml}
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--subtext);margin-top:10px;margin-bottom:4px;">בדיקה גם ב:</div>
+        <div class="external-links">${externalLinks}</div>
+        <div class="last-checked">⏱ עודכן זה עתה · 17track</div>`;
+    }
+  } catch(e) {
+    resultEl.innerHTML = `
+      <div class="track-result">
+        <div class="track-result-header err">❌ שגיאה בחיבור</div>
+        <div class="track-result-body" style="font-size:13px;">בדוק ישירות ב:</div>
+      </div>
+      <div class="external-links" style="margin-top:10px;">${externalLinks}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> רענן סטטוס`;
+}
+
+function getExternalLinks(p) {
+  const t = encodeURIComponent(p.tracking);
+  const links = [
+    { url: `https://www.17track.net/he?nums=${t}`, label: '🔍 17track', color: '#4f46e5' },
+    { url: `https://track.aftership.com/tracking/${t}`, label: '📦 AfterShip', color: '#0ea5e9' },
+  ];
+  if (p.source === 'amazon') {
+    links.push({ url: `https://www.amazon.com/gp/your-account/order-history`, label: '🛒 אמזון', color: '#f59e0b' });
+  } else {
+    links.push({ url: `https://global.cainiao.com/detail.htm?mailNoList=${t}`, label: '🧡 Cainiao', color: '#ec4899' });
+    links.push({ url: `https://track.aliexpress.com/logisticsdetail.htm?tradeId=${t}`, label: '🛒 AliExpress', color: '#ff6a00' });
+  }
+  links.push({ url: `https://israelpost.co.il/tracking/?tracing_id=${t}`, label: '✉️ דואר ישראל', color: '#0d1b3e' });
+  return links.map(l => `<a href="${l.url}" target="_blank" class="ext-link" style="border-color:${l.color}20;color:${l.color};">${l.label}</a>`).join('');
+}
+
+// ---- DETAIL ----
+function openDetail(idx){
+  const p=parcels[idx];
+  const s=getStatus(p);
+  const badge=p.source==='amazon'?'badge-amazon':'badge-aliexpress';
+  const badgeTxt=p.source==='amazon'?'🛒 אמזון':'🧡 עלי אקספרס';
+
+  let etaCardHtml='';
+  if(p.eta&&!p.delivered){
+    const d=daysUntil(p.eta);
+    const dLabel=d===0?'מגיע היום!':d<0?`התעכב ${Math.abs(d)} ימים`:`עוד ${d} ימים`;
+    etaCardHtml=`<div class="eta-card"><div class="eta-card-label">תאריך הגעה משוער</div><div class="eta-card-date">${fmtDateLong(p.eta)}</div><div class="eta-card-sub">${dLabel}</div><div class="eta-progress"><div class="eta-progress-fill" style="width:${s.progress}%"></div></div></div>`;
+  }
+
+  const simDay=Math.floor((Date.now()-p.addedAt)/86400000);
+
+  let tlHtml;
+  if(p.realEvents && p.realEvents.length) {
+    // Use real events from Amazon screenshot
+    const allSteps = [
+      {label:'הוזמן', done: p.realEvents.some(e=>e.status.includes('הוזמן')), date: p.realEvents.find(e=>e.status.includes('הוזמן'))?.date},
+      {label:'נשלח', done: p.realEvents.some(e=>e.status.includes('נשלח')), date: p.realEvents.find(e=>e.status.includes('נשלח'))?.date},
+      {label:'יצא למסירה', done: p.realEvents.some(e=>e.status.includes('יצא למסירה')), date: null},
+      {label:'נמסר', done: p.delivered, date: null},
+    ];
+    tlHtml = allSteps.map(s=>`
+      <div class="timeline-item">
+        <div class="timeline-dot ${s.done?'done':'pending'}"></div>
+        <div>
+          <div class="tl-status" style="color:${s.done?'var(--text)':'var(--subtext)'}">${s.label}</div>
+          ${s.date?`<div style="font-size:11px;color:var(--subtext);">${s.date}</div>`:''}
+        </div>
+      </div>`).join('');
+  } else {
+    const steps=[
+      {label:'ההזמנה אושרה',done:true},
+      {label:'נכנס למחסן',done:true},
+      {label:'בדרכו למדינת היעד',done:simDay>=1},
+      {label:'הגיע למדינת היעד',done:simDay>=5},
+      {label:'בדרכו למסירה',done:simDay>=10},
+      {label:'נמסר',done:p.delivered||simDay>=14},
+    ];
+    tlHtml=steps.map(s=>`<div class="timeline-item"><div class="timeline-dot ${s.done?'done':'pending'}"></div><div><div class="tl-status" style="color:${s.done?'var(--text)':'var(--subtext)'}">${s.label}</div></div></div>`).join('');
+  }
+
+  const lastCheckedHtml = p.lastTracked
+    ? `<div class="last-checked">⏱ בדיקה אחרונה: ${timeAgo(p.lastTracked)}${p.lastStatus ? ' · ' + esc(p.lastStatus) : ''}</div>`
+    : '';
+
+  document.getElementById('detailContent').innerHTML=`
+    <div class="close-detail" onclick="closeDetail()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+    <div class="modal-handle"></div>
+    <span class="source-badge ${badge}">${badgeTxt}</span>
+    <div class="detail-title">${esc(p.name)}</div>
+    <div class="detail-tracking">${esc(p.tracking)}</div>
+    ${p.pickup?`<div style="font-size:13px;color:var(--subtext);margin-bottom:14px;display:flex;align-items:center;gap:6px;background:#f9fafb;padding:8px 12px;border-radius:8px;"><span style="font-size:16px;">📍</span><span>${esc(p.pickup)}</span></div>`:''}
+    ${etaCardHtml}
+
+    <button class="track-btn" id="trackBtn_${idx}" onclick="checkTrackingStatus(${idx})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      בדוק סטטוס עכשיו
+    </button>
+    ${lastCheckedHtml}
+    <div id="trackResult_${idx}" style="margin-top:4px;"></div>
+
+    <div class="timeline-label" style="margin-top:16px;">לוח זמנים</div>
+    <div class="timeline">${tlHtml}</div>
+    ${!p.delivered?`<button class="submit-btn" style="margin-top:16px" onclick="markDelivered(${idx})">✅ סמן כנמסר</button>`:''}
+    <button class="delete-btn" onclick="deleteParcel(${idx})">🗑 מחק משלוח</button>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetail(){document.getElementById('detailModal').classList.remove('open');}
+function markDelivered(idx){parcels[idx].delivered=true;parcels[idx].updatedAt=Date.now();save();render();closeDetail();}
+function deleteParcel(idx){if(confirm('למחוק את המשלוח?')){parcels.splice(idx,1);save();render();closeDetail();}}
+
+// ---- EDIT ----
+let editIdx=null;
+function openMenu(idx){
+  editIdx=idx; const p=parcels[idx];
+  document.getElementById('editTracking').value=p.tracking;
+  document.getElementById('editName').value=p.name;
+  document.getElementById('editSource').value=p.source;
+  document.getElementById('editPickup').value=p.pickup||'';
+  document.getElementById('editEta').value=p.eta||'';
+  document.getElementById('editModal').classList.add('open');
+}
+function closeEditModal(){document.getElementById('editModal').classList.remove('open');editIdx=null;}
+function saveEdit(){
+  if(editIdx===null) return;
+  const tracking=document.getElementById('editTracking').value.trim();
+  if(!tracking){document.getElementById('editTracking').style.borderColor='#ef4444';setTimeout(()=>document.getElementById('editTracking').style.borderColor='',1500);return;}
+  parcels[editIdx]={...parcels[editIdx],tracking,name:document.getElementById('editName').value.trim()||parcels[editIdx].name,source:document.getElementById('editSource').value,pickup:document.getElementById('editPickup').value.trim(),eta:document.getElementById('editEta').value,updatedAt:Date.now()};
+  save();render();closeEditModal();
+}
+function deleteFromEdit(){if(editIdx===null)return;if(confirm('למחוק?')){parcels.splice(editIdx,1);save();render();closeEditModal();}}
+
+// ---- TABS ----
+function switchTab(tab,el){currentTab=tab;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');render();}
+
+// ---- SEARCH ----
+function openSearch(){const q=prompt('חפש לפי שם או מספר מעקב:');if(!q)return;const r=parcels.filter(p=>p.name.includes(q)||p.tracking.toLowerCase().includes(q.toLowerCase()));alert(r.length?`נמצאו ${r.length} משלוחים`:'לא נמצאו תוצאות');}
+
+// ---- CHECK ALL ----
+async function checkAllParcels() {
+  const active = parcels.filter(p => !p.delivered);
+  if (!active.length) { alert('אין משלוחים פעילים לבדיקה'); return; }
+
+  const icon = document.getElementById('checkAllIcon');
+  icon.classList.add('spin');
+
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#0d1b3e;color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;animation:fadeIn 0.3s ease;white-space:nowrap;';
+  toast.textContent = `⏳ בודק ${active.length} משלוחים...`;
+  document.body.appendChild(toast);
+
+  let found = 0, done = 0;
+  for (const p of active) {
+    const idx = parcels.indexOf(p);
+    try {
+      const data = await fetchTracking17(p.tracking);
+      if (data.found && data.events?.length) {
+        parcels[idx].lastTracked = Date.now();
+        parcels[idx].lastStatus = data.statusText;
+        parcels[idx].realEvents = data.events.map(e => ({
+          date: e.date ? new Date(e.date).toLocaleDateString('he-IL') : '',
+          status: e.status, location: e.location
+        }));
+        if (data.delivered) { parcels[idx].delivered = true; parcels[idx].updatedAt = Date.now(); }
+        found++;
+      }
+    } catch(e) { /* skip */ }
+    done++;
+    toast.textContent = `⏳ בודק... (${done}/${active.length})`;
+  }
+
+  save(); render();
+  icon.classList.remove('spin');
+  toast.textContent = found > 0 ? `✅ עודכנו ${found} משלוחים` : `📭 לא נמצאו עדכונים חדשים`;
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ---- REFRESH ----
+function refreshAll(){const icon=document.getElementById('refreshIcon');icon.classList.add('spin');setTimeout(()=>{icon.classList.remove('spin');render();},1000);}
+
+// ---- INIT ----
+if(!parcels.length){
+  const now=Date.now();
+  const orderDate = new Date('2025-02-14').getTime();
+  const shipDate = new Date('2025-02-16').getTime();
+  // ETA: Sunday = next Sunday from today
+  const nextSunday = new Date(); nextSunday.setDate(nextSunday.getDate() + (7 - nextSunday.getDay()) % 7 || 7);
+  parcels=[
+    {id:1,tracking:'GWD004537768',name:'אמזון - רצועות לשעון, יגיע לתיק-תק',source:'amazon',pickup:'סניף דואר ראשון לציון מרכז',
+     eta:nextSunday.toISOString().split('T')[0],
+     addedAt:orderDate, updatedAt:shipDate, delivered:false,
+     lastTracked:Date.now(),
+     lastStatus:'נשלח על ידי Gaash Worldwide Ltd',
+     lastLocation:'בדרך לישראל',
+     realEvents:[
+       {date:'16/02/2025', status:'נשלח על ידי Gaash Worldwide Ltd', location:''},
+       {date:'14/02/2025', status:'הוזמן', location:''},
+     ]
+    },
+    {id:2,tracking:'GWD004543443',name:'עלי אקספרס - נרתיק לטלפון',source:'aliexpress',pickup:'',
+     eta: (() => { const d=new Date(); d.setDate(d.getDate() + (2 - d.getDay() + 7) % 7 || 7); return d.toISOString().split('T')[0]; })(),
+     addedAt:new Date('2025-02-14').getTime(), updatedAt:new Date('2025-02-19').getTime(), delivered:false,
+     lastTracked:Date.now(), lastStatus:'נשלח על ידי Gaash Worldwide Ltd', lastLocation:'בדרך לישראל',
+     realEvents:[
+       {date:'19/02/2025', status:'נשלח על ידי Gaash Worldwide Ltd', location:''},
+       {date:'14/02/2025', status:'הוזמן', location:''},
+     ]
+    },
+    {id:3,tracking:'AE992847561',name:'עלי אקספרס - כבל טעינה מגנטי',source:'aliexpress',pickup:'נקודת חלוקה קניון הזהב',eta:null,addedAt:now-86400000*30,updatedAt:now-86400000*2,delivered:true},
+  ];
+  save();
+}
+render();
+</script>
+</body>
+</html>
