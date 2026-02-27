@@ -15,18 +15,27 @@ exports.handler = async function(event) {
 
     const apiKey = process.env.TRACK17_API_KEY;
 
+    // Detect carrier — Gaash Worldwide uses GWD prefix (carrier code 190460 on 17track)
+    const isGaash = tracking.toUpperCase().startsWith('GWD');
+    const registerPayload = isGaash
+      ? [{ number: tracking, carrier: 190460 }]
+      : [{ number: tracking }];
+    const getPayload = isGaash
+      ? [{ number: tracking, carrier: 190460 }]
+      : [{ number: tracking }];
+
     // Step 1: Register tracking number
     await fetch('https://api.17track.net/track/v2.2/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', '17token': apiKey },
-      body: JSON.stringify([{ number: tracking }])
+      body: JSON.stringify(registerPayload)
     });
 
     // Step 2: Get tracking info
     const res = await fetch('https://api.17track.net/track/v2.2/gettrackinfo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', '17token': apiKey },
-      body: JSON.stringify([{ number: tracking }])
+      body: JSON.stringify(getPayload)
     });
 
     const data = await res.json();
@@ -53,8 +62,8 @@ exports.handler = async function(event) {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        found: true,
-        carrier: track?.carrier_code || '',
+        found: events.length > 0,
+        carrier: isGaash ? 'Gaash Worldwide' : (track?.carrier_code || ''),
         statusCode: track?.status,
         statusText: statusMap[track?.status] || 'בדרך',
         delivered: track?.status === 50,
