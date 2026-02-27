@@ -14,43 +14,50 @@ exports.handler = async function(event) {
     if (!tracking) return { statusCode: 400, headers, body: JSON.stringify({ error: 'missing tracking number' }) };
 
     const apiKey = process.env.TRACK17_API_KEY;
-
-    // Detect carrier — Gaash Worldwide uses GWD prefix (carrier code 190460 on 17track)
     const isGaash = tracking.toUpperCase().startsWith('GWD');
-    const registerPayload = isGaash
-      ? [{ number: tracking, carrier: 190460 }]
-      : [{ number: tracking }];
-    const getPayload = isGaash
-      ? [{ number: tracking, carrier: 190460 }]
-      : [{ number: tracking }];
 
-    // Step 1: Register tracking number
-    await fetch('https://api.17track.net/track/v2.2/register', {
+    // Step 1: Register (no carrier hint — let 17track auto-detect, works better)
+    const regRes = await fetch('https://api.17track.net/track/v2.2/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', '17token': apiKey },
-      body: JSON.stringify(registerPayload)
+      body: JSON.stringify([{ number: tracking }])
     });
+    const regData = await regRes.json();
+    console.log('Register response:', JSON.stringify(regData));
 
     // Step 2: Get tracking info
     const res = await fetch('https://api.17track.net/track/v2.2/gettrackinfo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', '17token': apiKey },
-      body: JSON.stringify(getPayload)
+      body: JSON.stringify([{ number: tracking }])
     });
 
     const data = await res.json();
-    const item = data?.data?.accepted?.[0];
+    console.log('Track response:', JSON.stringify(data).substring(0, 500));
+
+    // Check both accepted and rejected
+    const item = data?.data?.accepted?.[0] || data?.data?.rejected?.[0];
 
     if (!item) {
-      return { statusCode: 200, headers, body: JSON.stringify({ found: false }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ found: false, debug: data }) };
     }
 
     const track = item.track;
-    const events = (track?.tracking?.providers?.[0]?.events || []).map(ev => ({
-      date: ev.time_iso || ev.time,
-      status: ev.description,
-      location: ev.location || ''
-    }));
+    const providers = track?.tracking?.providers || [];
+    
+    // Collect events from all providers
+    let events = [];
+    for (const provider of providers) {
+      const provEvents = (provider.events || []).map(ev => ({
+        date: ev.time_iso || ev.time,
+        status: ev.description,
+        location: ev.location || ''
+      }));
+      events = events.concat(provEvents);
+    }
+
+    // Sort by date descending
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const statusMap = {
       0: 'לא נמצא', 10: 'בתהליך', 20: 'נשלח', 30: 'במעבר',
@@ -58,15 +65,18 @@ exports.handler = async function(event) {
       42: 'זמין לאיסוף', 43: 'מוחזר לשולח', 50: 'נמסר', 60: 'פג תוקף'
     };
 
+    const statusCode = track?.status ?? track?.w1;
+    const carrierName = isGaash ? 'Gaash Worldwide' : (track?.carrier_name || track?.w3 || '');
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        found: events.length > 0,
-        carrier: isGaash ? 'Gaash Worldwide' : (track?.carrier_code || ''),
-        statusCode: track?.status,
-        statusText: statusMap[track?.status] || 'בדרך',
-        delivered: track?.status === 50,
+        found: true,
+        carrier: carrierName,
+        statusCode,
+        statusText: statusMap[statusCode] || 'בדרך',
+        delivered: statusCode === 50,
         events
       })
     };
